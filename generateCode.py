@@ -17,7 +17,7 @@ def extract_code(text):
     
     return matches
 
-BOT_NAME = 'Pulse'
+BOT_NAME = 'Google'
 
 def generateCode(prompt):
     repo_id = "openai-community/gpt2"
