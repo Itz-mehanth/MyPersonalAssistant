@@ -1,8 +1,9 @@
 import os
+import re
 import subprocess
 import pyautogui
 import ctypes
-
+import pyperclip
 import requests
 from API_KEY import API_TOKEN
 from comtypes import CoInitializeEx, COINIT_APARTMENTTHREADED
@@ -82,7 +83,7 @@ def search_and_open_file(search_path, file_name_substring):
 
 def send_whatsapp_message(contact_name, message):
     # Open Start menu and search for WhatsApp
-    pyautogui.prefss("win")  # Press the Windows key
+    pyautogui.press("win")  # Press the Windows key
     time.sleep(1)  # Wait for the Start menu to appear
     pyautogui.typewrite("WhatsApp")  # Type "WhatsApp" to search for the app
     pyautogui.press("enter")  # Press Enter to open WhatsApp
@@ -126,6 +127,25 @@ def getYoutubeTabPos():
         return xPos, yPos
     else:
         print("YouTube tab not found.")
+
+def getChatgptTabPos():
+    # List all open windows
+    all_windows = gw.getAllTitles()
+
+    # Find the ChatGPT window (replace "ChatGPT" with the actual title of the tab)
+    chatgpt_window = None
+    for window in gw.getAllWindows():
+        if "ChatGPT" in window.title:  # Adjust if needed to match your ChatGPT tab title
+            chatgpt_window = window
+            break
+
+    if chatgpt_window:
+        # Get the window's center
+        center = chatgpt_window.center  # This returns a tuple (x, y)
+        return center
+    else:
+        print("ChatGPT tab not found.")
+        return None
 
 def searchYouTubeAndPlay(query):
     # Open YouTube in the default web browser
@@ -220,7 +240,7 @@ def getInference(query):
                 
     data = {
         "inputs": query,
-        "parameters": {"max_new_tokens": 550},
+        "parameters": {"max_new_tokens": 500},
         "task": "text-generation"
     }
 
@@ -282,12 +302,130 @@ def analyze_windows_with_query(query):
             combined_details += f"\nWindow Title: {window.title}\nError: Unable to process this window.\n"
 
     # Final prompt to the LLM
-    final_prompt = f"{combined_details}\n\nQuery: {query}"
-    
+    final_prompt = (
+        "You are a screen analysis assistant. Your job is to analyze the extracted details from different windows\n "
+        "and answer the user's query in plain language. Avoid providing code or unnecessary details unless explicitly requested.\n "
+        "If the question is about a particular window focus on that window's content\n"
+        "Here are the details of the extracted screen content: use this content to answer the query you don't need to perform any coding because the answer lies in the follwing content\n\n"
+        f"{combined_details}\n\n"
+        "Query: {query}\n\n"
+        "Answer concisely in plain text, focusing only on what the user is asking."
+    )
+
+    print("final prompt:\n" + final_prompt)
+    def clean_text(text, remove_chars="*#"):
+        # Escape special characters to make them safe for regex
+        escaped_chars = re.escape(remove_chars)
+        # Remove the unwanted characters using regex
+        cleaned_text = re.sub(f"[{escaped_chars}]", "", text)
+        return cleaned_text
+
     # Replace `getInference` with the function or pipeline for LLM inference
     llm_response = getInference(final_prompt)
+    llm_response = clean_text(llm_response["generated_text"][len(final_prompt):])
     print("\nLLM Response:")
-    print(llm_response)
-    # speak(llm_response)
+    # print(llm_response["generated_text"][len(final_prompt):])
+    speak(llm_response)
+    return llm_response
+
+
+def getChatgptTabPos():
+
+    # Find the ChatGPT window (replace "ChatGPT" with the actual title of the tab)
+    chatgpt_window = None
+    for window in gw.getAllWindows():
+        if "ChatGPT" in window.title:  # Adjust if needed to match your ChatGPT tab title
+            chatgpt_window = window
+            break
+
+    if chatgpt_window:
+        # Get the window's center
+        center = chatgpt_window.center  # This returns a tuple (x, y)
+        return center[0], center[1], chatgpt_window
+    else:
+        print("ChatGPT tab not found.")
+        return None, None, None
+
+def open_chatgpt_and_ask(question, getCode = False):
+    # Check if ChatGPT tab is already open
+    x, y, chatgpt_window = getChatgptTabPos()
+
+    if chatgpt_window and x > 0 and y > 0:
+        # If a ChatGPT window is found, bring it to the front
+        # Click on the window to focus the input
+        print("window found")
+        print(x, y, chatgpt_window)
+        pyautogui.click(x, y)
+        time.sleep(1)  # Wait a bit to ensure the window is focused
+    else:
+        # If no ChatGPT window is open, open a new one
+        pyautogui.press('win')  # Press the Windows key to open the Start menu
+        time.sleep(1)
+        pyautogui.typewrite('chatgpt')  # Type the ChatGPT URL
+        pyautogui.press('enter')  # Press Enter to go to ChatGPT
+        time.sleep(10)  # Wait for ChatGPT to load
+
+        # Find the new ChatGPT window
+        x, y, chatgpt_window = getChatgptTabPos()
+        pyautogui.click(x, y)
+      
+        time.sleep(1)
 
     
+
+    pyautogui.hotkey('shift', 'esc')  # Focus chat input
+
+    # Type the question in ChatGPT's input field
+    pyautogui.typewrite(question)
+    pyautogui.press('enter')  # Press Enter to send the question
+    time.sleep(10)  # Wait for the response
+
+    # Copy the last response
+    if getCode:
+        pyautogui.hotkey('ctrl', 'shift', ';')  # Copy the last response
+    else:
+        pyautogui.hotkey('ctrl', 'shift', 'c')  # Copy the last response
+    time.sleep(1)  # Wait for the response to be copied
+
+    # Get text from the clipboard
+    clipboard_text = pyperclip.paste()
+
+    print("According to ChatGPT: ", clipboard_text)
+
+    return clipboard_text
+
+
+def close_window_by_title(window_title):
+    """Closes a window with a specific title."""
+    windows = gw.getAllTitles()
+    for title in windows:
+        try:
+            if re.search(window_title, title, re.IGNORECASE):
+                print(f"Closing window: {title}")
+                gw.getWindowsWithTitle(title)[0].close()
+        except Exception as e:
+            print(f"Could not close window '{title}': {e}")
+
+
+def close_all_windows_except(except_title):
+    """Closes all windows except the one with a specific title."""
+    windows = gw.getAllTitles()
+    for title in windows:
+        if re.search(except_title, title, re.IGNORECASE):
+            print(f"Closing window: {title}")
+            try:
+                gw.getWindowsWithTitle(title)[0].close()
+            except Exception as e:
+                print(f"Could not close window '{title}': {e}")
+
+
+def close_all_windows():
+    """Closes all open windows."""
+    windows = gw.getAllTitles()
+    for title in windows:
+        print(f"Closing window: {title}")
+        try:
+            gw.getWindowsWithTitle(title)[0].close()
+        except Exception as e:
+            print(f"Could not close window '{title}': {e}")
+

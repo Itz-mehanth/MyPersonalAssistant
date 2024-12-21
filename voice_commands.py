@@ -1,6 +1,6 @@
 import os
 import re
-from ChatTTS import ChatTTS
+import sys
 import speech_recognition as sr
 import pyttsx3
 import sounddevice as sd
@@ -29,9 +29,12 @@ from voice import speak
 import numpy as np
 from generateCode import generateCode
 from WebSearch import playOnline, playSong, chatWithBot
-from systemControl import search_and_open_file, send_whatsapp_message, searchYouTubeAndPlay, splitScreen, control_brightness, control_volume, analyze_windows_with_query
+from systemControl import search_and_open_file, send_whatsapp_message, searchYouTubeAndPlay, splitScreen, control_brightness, control_volume, analyze_windows_with_query,open_chatgpt_and_ask, close_window_by_title,  close_all_windows_except, close_all_windows
 from API_KEY import API_TOKEN
 import logging
+from vsAuto import automate_development_process
+from ui import  ui
+
 
 AI_status = False
 
@@ -67,13 +70,13 @@ repo_id = "Qwen/QwQ-32B-Preview"
 repo_id = "Qwen/Qwen2.5-Coder-32B-Instruct"
 
 # Set the bot's name
-BOT_NAME = "Google"
+BOT_NAME = "Siri"
 
 # Set your ElevenLabs API key
 API_KEY = "sk_10bd287e4ce3f9f6af6bc73dff5150d2d840e66ddf108438"
 VOICE_ID = "bIHbv24MWmeRgasZH58o"  # You can find the voice ID in your ElevenLabs dashboard
 
-def listen_for_command(silence_duration = 5):
+def listen_for_command(silence_duration = 2):
     model = whisper.load_model("base")
     while True:
         try:
@@ -98,7 +101,7 @@ def listen_for_command(silence_duration = 5):
                 data_array = np.frombuffer(data, dtype=np.int16)
                 rms = np.sqrt(np.mean(data_array**2))
                 print(f"RMS: {rms}")
-                if rms < 12:
+                if rms < 40:
                     silent_frames += 1
                     print("silent_frames count" + str(silent_frames))
                 else: 
@@ -139,7 +142,13 @@ def listen_for_command(silence_duration = 5):
 FUNCTIONS = {
     "generateCode": {
         "module": "generateCode",
-        "description": "Generates code based on user-provided requirements, like opening any application or works like interacting with the system.",
+        "description": "If no functions could be used on the list use this to Generates code based on user-provided requirements, like opening any application or works like interacting with the system. if the query is about to get response from chatgpt these shortcuts will help\n"
+            "Open new chat - Ctrl + Shift + O"
+            "Focus chat input - Shift + Esc"
+            "Copy last code block - Ctrl + Shift + ;"
+            "Copy last response - Ctrl + Shift + C"
+            "If need create functions that could return values which can be used for further funciton calls"
+            ,
         "parameters": ["task_description"],
         "example": 'generateCode("Implement a quicksort algorithm")',
     },
@@ -169,7 +178,7 @@ FUNCTIONS = {
     },
     "send_whatsapp_message": {
         "module": "systemControl",
-        "description": "Opens WhatsApp, searches for a contact, types the message, and sends it automatically.",
+        "description": "Opens WhatsApp, searches for a contact, types the message, and sends it automatically. My contacts are Mayur, Chandra Prakash, Paveethiran SK, and a group named Adaengappaa Naalu peruu da",
         "parameters": ["contact_name", "message"],
         "example": 'send_whatsapp_message("John Doe", "Hello, how are you?")',
     },
@@ -199,9 +208,41 @@ FUNCTIONS = {
     },
     "analyze_windows_with_query": {
         "module": "systemControl",
-        "description": "Analyzes all open windows, extracts text content using OCR, and sends the details along with a user-provided query to the LLM for insights.",
+        "description": "Analyzes all open windows, extracts text content using OCR, and sends the details along with a user-provided query to the LLM for insights. if any questions or doubts are recommendations are asked based on the screen info use this function",
         "parameters": ["query"],
         "example": 'analyze_windows_with_query("What errors are visible on the current windows?")',
+    },
+    "open_chatgpt_and_ask": {
+        "module": "systemControl",
+        "description": "Opens the ChatGPT webpage, focuses the chat input, types a question, and retrieves the response. The response is copied to the clipboard, which can be further processed or used.",
+        "parameters": ["question"],
+        "example": 'open_chatgpt_and_ask("What is the capital of France?")',
+    },
+    "automate_development_process": {
+        "module": "systemControl",
+        "description": (
+            "Automates the workflow for opening VSCode, creating a new project folder, generating code from ChatGPT, and running it in VSCode"
+        ),
+        "parameters": ["query"],
+        "example": 'automate_development_process("Write a Python script to scrape a website and save data to a CSV file.")',
+    },
+    "close_window_by_title": {
+        "module": "systemControl",
+        "description": "Closes a window with a specific title.",
+        "parameters": ["window_title"],
+        "example": 'close_window_by_title("Google Chrome")',
+    },
+    "close_all_windows_except": {
+        "module": "systemControl",
+        "description": "Closes all windows except the one with a specific title.",
+        "parameters": ["except_title"],
+        "example": 'close_all_windows_except("Visual Studio Code")',
+    },
+    "close_all_windows": {
+        "module": "systemControl",
+        "description": "Closes all open windows on the system.",
+        "parameters": [],
+        "example": 'close_all_windows()',
     },
 }
 
@@ -209,7 +250,8 @@ FUNCTIONS = {
 def extract_function_call(response_text):
     functions = ["generateCode", "playOnline", "playSong", "search_and_open_file", 
                  "chatWithBot", "send_whatsapp_message", "searchYouTubeAndPlay", 
-                 "splitScreen", "control_volume", "control_brightness", "analyze_windows_with_query"]
+                 "splitScreen", "control_volume", "control_brightness", "analyze_windows_with_query", 
+                 "open_chatgpt_and_ask", "automate_development_process","close_window_by_title",  "close_all_windows_except", "close_all_windows"]
     
     # Create a regular expression to match any of the function calls
     function_regex = r'(\w+)\s*\((.*?)\)'
@@ -242,10 +284,11 @@ def generate_response(prompt):
         f"{list(FUNCTIONS.keys())}.\n"
         f"Each function and its parameters are: {FUNCTIONS}.\n"
         'Respond with a Python code snippet that contains the function call, and make sure to include all required arguments. place the code inside triple quotes for example triple quotes(""")function("query")triple quotes(""")\n'
-        "If need multiple function calls for a query give me all of them"
-        "If no information could be gathered from the query return empty string"
+        "For complex queries, you can return multiple function calls.\n"
+        "If the query is unclear or irrelevant, return an empty string.\n"
         "Here is the user's query:\n"
-        f"{prompt}"
+        f"{prompt}\n"
+        "Ensure your response is concise and strictly adheres to the user's request."
     )
 
     data = {
@@ -276,8 +319,10 @@ def listen_for_bot_name():
         if "stop" in command.lower():
             stop_ai()
             speak("Goodbye! Mehanth")
+            pygame.quit()
+            sys.exit()
             return
-        if command and (BOT_NAME.lower() in command.lower() or AI_status):  # Check if the bot's name is mentioned
+        if command and (BOT_NAME.lower() in command.lower()):  # Check if the bot's name is mentioned
             start_ai()
             process_command(command)  # Process any further command after bot's name is detected
 
@@ -291,8 +336,6 @@ def process_command(command):
     else:
         speak(generated_code)
 
-
-# listen_for_bot_name()
 # Function to execute the generated code
 def execute_function(generated_code):
     try:

@@ -24,6 +24,10 @@ def web_search(query, type):
 def play(link):
     pyautogui.press("win")  # Press the Windows key to open the Start menu
     time.sleep(1)  # Wait for the browser to open
+    pyautogui.press("google")  # Press the Windows key to open the Start menu
+    time.sleep(1)  # Wait for the browser to open
+    pyautogui.press("enter")  # Press Enter to open the browser
+    time.sleep(1)  # Wait for the browser to open
     pyautogui.typewrite(link)  # Type 'chrome' to open Google Chrome (or your browser of choice)
     time.sleep(1)  # Wait for the browser to open
     pyautogui.press("enter")  # Press Enter to open the browser
@@ -82,6 +86,8 @@ def search_duckduckgo(query):
     headers = {
         "Authorization": f"Bearer {API_TOKEN}"
     }
+
+    query += "\n Answer the above query concisely don't add anything unwanted better try to give the answer in 2 or 3 sentence maximum"
 
     data = {
         "inputs": query,

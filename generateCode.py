@@ -14,10 +14,14 @@ def extract_code(text):
     
     # Find all occurrences of the pattern
     matches = re.findall(pattern, text, re.DOTALL)
+
+    if not matches:
+        pattern = r'[code](.*?)[/code]'
+        matches = re.findall(pattern, text, re.DOTALL)
     
     return matches
 
-BOT_NAME = 'Google'
+BOT_NAME = 'Siri'
 
 def generateCode(prompt):
     repo_id = "openai-community/gpt2"
