@@ -34,7 +34,7 @@ from API_KEY import API_TOKEN
 import logging
 from vsAuto import automate_development_process
 from ui import  ui
-
+from surveilance import send_camera_image_on_whatsapp,send_screenshot_on_whatsapp
 
 AI_status = False
 
@@ -70,7 +70,7 @@ repo_id = "Qwen/QwQ-32B-Preview"
 repo_id = "Qwen/Qwen2.5-Coder-32B-Instruct"
 
 # Set the bot's name
-BOT_NAME = "Siri"
+BOT_NAME = "Aura"
 
 # Set your ElevenLabs API key
 API_KEY = "sk_10bd287e4ce3f9f6af6bc73dff5150d2d840e66ddf108438"
@@ -244,14 +244,27 @@ FUNCTIONS = {
         "parameters": [],
         "example": 'close_all_windows()',
     },
+     "send_screenshot_on_whatsapp": {
+        "module": "systemControl",
+        "description": "Captures a screenshot of the current screen using pyautogui, saves it locally, and sends the image via WhatsApp using Selenium WebDriver automation. It interacts with the WhatsApp Web interface to attach the image and send it to the recipient. The function handles tasks like locating UI elements (attach button, file input, send button) and interacting with them programmatically.",
+        "parameters": [],
+        "example": "send_screenshot_on_whatsapp()"
+    },
+    "send_camera_image_on_whatsapp": {
+        "module": "systemControl",
+        "description": "Captures an image using the system's webcam through the cv2 library, saves it locally, and sends the image via WhatsApp using Selenium WebDriver automation. It interacts with the WhatsApp Web interface to attach the image and send it to the recipient. The function handles tasks like activating the webcam, capturing an image, saving it, and automating the WhatsApp Web UI.",
+        "parameters": [],
+        "example": "send_camera_image_on_whatsapp()"
+    },
 }
-
     
 def extract_function_call(response_text):
     functions = ["generateCode", "playOnline", "playSong", "search_and_open_file", 
                  "chatWithBot", "send_whatsapp_message", "searchYouTubeAndPlay", 
                  "splitScreen", "control_volume", "control_brightness", "analyze_windows_with_query", 
-                 "open_chatgpt_and_ask", "automate_development_process","close_window_by_title",  "close_all_windows_except", "close_all_windows"]
+                 "open_chatgpt_and_ask", "automate_development_process","close_window_by_title",  
+                 "close_all_windows_except", "close_all_windows","send_camera_image_on_whatsapp",
+                 "send_screenshot_on_whatsapp"]
     
     # Create a regular expression to match any of the function calls
     function_regex = r'(\w+)\s*\((.*?)\)'
@@ -310,20 +323,22 @@ def generate_response(prompt):
         print(f"Error {response.status_code}: {response.text}")
         return "I'm sorry, but I couldn't process your request at this time."
 
-# Function to check if the bot's name was mentioned
-def listen_for_bot_name():
-    speak("Welcome! How can i help you?")
-    while True:
+# Function to check if the bot's name was mentionedf
+def listen_for_bot_name(input_text = None):
+    # speak(f"Welcome! I am {BOT_NAME}, How can i help you?")
+    # while True:
         # command = listen_for_command()  # Listen for the command
-        command = input("Enter command: ")
-        if "stop" in command.lower():
+        # command = input("Enter command: ")
+        command = input_text  # For testing purposes, replace with actual command input
+        if command and "stop" in command.lower():
             stop_ai()
             speak("Goodbye! Mehanth")
             pygame.quit()
             sys.exit()
             return
-        if command and (BOT_NAME.lower() in command.lower()):  # Check if the bot's name is mentioned
+        if (BOT_NAME.lower() in command.lower()):
             start_ai()
+        if command and AI_status:  # Check if the bot's name is mentioned
             process_command(command)  # Process any further command after bot's name is detected
 
 # Process Commands
@@ -348,4 +363,4 @@ def execute_function(generated_code):
         print("Error executing code:", e)
 
 
-listen_for_bot_name()
+# listen_for_bot_name()

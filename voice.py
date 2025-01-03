@@ -12,7 +12,7 @@ engine = pyttsx3.init()
 
 # Set the bot's voice to a female voice
 voices = engine.getProperty('voices')
-engine.setProperty('voice', voices[1].id)
+engine.setProperty('voice', voices[0].id)
 
 
 filename = "aivoice.wav"
@@ -21,7 +21,6 @@ def speak(text):
     engine.setProperty('rate', 150)  # Set to 150 WPM (slower)
     engine.save_to_file(text, filename)
     engine.runAndWait()
-    
 
     # Start the `ui()` function in a separate thread
     ui_thread = threading.Thread(target=ui, args=(text,))

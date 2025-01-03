@@ -1,3 +1,4 @@
+import ctypes
 import time
 import wave
 import pygame
@@ -5,14 +6,6 @@ import pyaudio
 import numpy as np
 import sys
 import math
-
-# Initialize Pygame
-pygame.init()
-
-# Set up the display
-WIDTH, HEIGHT = 400, 400
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("AI Assistant")
 
 # Colors
 BLACK = (0, 0, 0)
@@ -47,7 +40,7 @@ def generate_smooth_nodes(num_nodes, radius):
     return nodes
 
 # Function to project 3D points to 2D (for rendering on the screen)
-def project_to_2d(x, y, z, width, height, depth=200):
+def project_to_2d(x, y, z, width, height, depth=1000):
     # Simple perspective projection
     factor = depth / (depth + z)
     x_proj = int(x * factor + width // 2)
@@ -55,20 +48,20 @@ def project_to_2d(x, y, z, width, height, depth=200):
     return x_proj, y_proj
 
 # Function to draw lines (edges) between nodes
-def draw_edges(nodes, edges):
+def draw_edges(nodes, edges, WIDTH, HEIGHT, screen):
     for (i, j) in edges:
         x1, y1 = project_to_2d(*nodes[i], WIDTH, HEIGHT)
         x2, y2 = project_to_2d(*nodes[j], WIDTH, HEIGHT)
         pygame.draw.line(screen, LINE_COLOR, (x1, y1), (x2, y2), 2)
 
 # Function to draw nodes (bubbles) as circles
-def draw_nodes(nodes):
+def draw_nodes(nodes, WIDTH, HEIGHT, screen):
     for (x, y, z) in nodes:
         x_proj, y_proj = project_to_2d(x, y, z, WIDTH, HEIGHT)
         pygame.draw.circle(screen, NODE_COLOR, (x_proj, y_proj), 2)
 
 # Function to create edges between nodes (forming a smooth mesh-like graph)
-def create_edges(num_nodes, nodes):
+def create_edges(num_nodes, nodes, WIDTH, HEIGHT, screen):
     edges = []
     for i in range(num_nodes):
         for j in range(i + 1, num_nodes):
@@ -121,6 +114,22 @@ def getdata():
 
 # Main visualization loop
 def ui(text):
+    
+    # Initialize Pygame
+    pygame.init()
+
+    # Get the screen size
+    info = pygame.display.Info()
+    WIDTH, HEIGHT = info.current_w, info.current_h
+
+    # Set up the display as fullscreen and no frame
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.NOFRAME)
+    pygame.display.set_caption("AI Assistant")
+
+    # Ensure the window stays on top (Windows-specific)
+    ctypes.windll.user32.SetWindowPos(pygame.display.get_wm_info()['window'], -1, 0, 0, 0, 0, 0x0001)
+
+
     clock = pygame.time.Clock()
     running = True
 
@@ -130,7 +139,7 @@ def ui(text):
 
     # Initial nodes and edges
     nodes = generate_smooth_nodes(num_nodes, radius)
-    edges = create_edges(num_nodes, nodes)
+    edges = create_edges(num_nodes, nodes, WIDTH, HEIGHT, screen)
 
     angle_offset_x = 0  # Rotation angle for X-axis
     angle_offset_y = 0  # Rotation angle for Y-axis
@@ -145,30 +154,57 @@ def ui(text):
     # Start playback timer
     start_time = time.time()
 
+    font_path = 'C:\\Mybot\\asset\\fonts\\Jersey15-Regular.ttf'
     # Text input settings
-    font = pygame.font.Font(None, 14)  # Font for text
-    input_box = pygame.Rect(10, HEIGHT - 50, WIDTH - 20, 40)  # Input box dimensions
+    font = pygame.font.Font(font_path, 50)  # Font for text
     input_text = text  # User input
     input_active = False  # To track if the input box is active
     input_color = (200, 200, 200)  # Color of input box
     input_color_active = (255, 255, 255)  # Active color
     input_color_inactive = (100, 100, 100)  # Inactive color
 
-    def render_text_multiline(surface, text, font, rect, color):
-        """Render multiline text within a given rectangle."""
+    def render_text_multiline(surface, text, font, color, max_width, screen_width, screen_height):
+        """
+        Render multiline text centered horizontally and starting below the screen's mid-height.
+
+        Args:
+            surface: The Pygame surface to render the text on.
+            text: The string to render.
+            font: The Pygame font object to use.
+            color: The color of the text (RGB tuple).
+            max_width: The maximum width for text before wrapping.
+            screen_width: Width of the screen for centering.
+            screen_height: Height of the screen to position below the midline.
+        """
         words = text.split(" ")
+        lines = []
         line = ""
-        y = rect.top + 5
+
+        # Split text into multiple lines based on max_width
         for word in words:
             test_line = line + word + " "
             test_surface = font.render(test_line, True, color)
-            if test_surface.get_width() > rect.width - 10:  # Wrap text
-                surface.blit(font.render(line, True, color), (rect.x + 5, y))
-                y += font.get_height() + 5
+            if test_surface.get_width() > max_width:
+                lines.append(line)
                 line = word + " "
             else:
                 line = test_line
-        surface.blit(font.render(line, True, color), (rect.x + 5, y))
+        lines.append(line)  # Add the last line
+
+        # Calculate total text height
+        total_text_height = len(lines) * font.get_height()
+
+        # Determine the starting y position below the midline
+        y = screen_height / 2 + 300
+
+        # Render each line centered horizontally
+        for line in lines:
+            text_surface = font.render(line, True, color)
+            text_width = text_surface.get_width()
+            x = (screen_width - text_width) / 2  # Center align the text horizontally
+            surface.blit(text_surface, (x, y))
+            y += font.get_height()  # Move down for the next line
+
 
 
     while running:
@@ -178,6 +214,7 @@ def ui(text):
         # Read the next chunk of audio
         audio_chunk = wav_file.readframes(chunk_size)
         if not audio_chunk:  # End of audio
+            running = False
             break
 
         # Convert audio chunk to NumPy array
@@ -191,33 +228,39 @@ def ui(text):
 
         # Regenerate nodes and edges with the updated radius
         nodes = generate_smooth_nodes(num_nodes, radius)
-        edges = create_edges(num_nodes, nodes)
+        edges = create_edges(num_nodes, nodes, WIDTH, HEIGHT, screen)
 
         # Rotate the nodes
         nodes = [rotate_x(rotate_y(node, angle_offset_y), angle_offset_x) for node in nodes]
 
         # Handle events
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 running = False
 
         # Clear the screen
         screen.fill(BLACK)
 
         # Draw the edges and nodes
-        draw_edges(nodes, edges)
-        draw_nodes(nodes)
+        # draw_edges(nodes, edges, WIDTH, HEIGHT, screen)
+        draw_nodes(nodes, WIDTH, HEIGHT, screen)
 
         # Adjust rotation angles for continuous rotation
         angle_offset_x += 0.01
         angle_offset_y += 0.01
 
-        # Draw input box with rounded corners
-        pygame.draw.rect(screen, input_color, input_box, border_radius=10)  # Border
-        pygame.draw.rect(screen, BLACK, input_box.inflate(-4, -4), border_radius=10)  # Inner box
 
         if input_text:
-            render_text_multiline(screen, input_text, font, input_box, WHITE)  # Render multiline text
+            # Call the function with screen dimensions and max_width
+            render_text_multiline(
+                screen,
+                input_text,
+                font,
+                (255, 255, 255),  # White color
+                max_width= WIDTH - 200,  # Adjust width for wrapping
+                screen_width=WIDTH,
+                screen_height=HEIGHT
+            )    
 
 
 
@@ -229,3 +272,5 @@ def ui(text):
 
     # Close the audio file
     wav_file.close()
+    pygame.quit()
+

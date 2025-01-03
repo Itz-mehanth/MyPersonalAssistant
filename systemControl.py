@@ -1,4 +1,5 @@
 import os
+import pickle
 import re
 import subprocess
 import pyautogui
@@ -21,6 +22,16 @@ from PIL import ImageGrab
 import pytesseract
 from transformers import pipeline
 from WebSearch import playSong
+import time
+from selenium.webdriver.chrome.options import Options
+import pyautogui
+import cv2
+import os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from PIL import Image
+from selenium.webdriver.chrome.service import Service
 import webbrowser
 
 def control_brightness(brightness: int):
@@ -45,6 +56,7 @@ def control_volume(volume: int):
         interface = devices.Activate(
             IAudioEndpointVolume._iid_, CLSCTX_ALL, None
         )
+
         volume_control = interface.QueryInterface(IAudioEndpointVolume)
 
         # Ensure the volume level is within the valid range (0 to 100)
@@ -149,7 +161,10 @@ def getChatgptTabPos():
 
 def searchYouTubeAndPlay(query):
     # Open YouTube in the default web browser
-    webbrowser.open("https://www.youtube.com")
+    pyautogui.press('win')
+    time.sleep(1)  # Wait for YouTube to load
+    pyautogui.typewrite('youtube')
+    pyautogui.press('enter')
     time.sleep(5)  # Wait for YouTube to load
     
     # Navigate to the search bar and perform the search
@@ -411,7 +426,7 @@ def close_all_windows_except(except_title):
     """Closes all windows except the one with a specific title."""
     windows = gw.getAllTitles()
     for title in windows:
-        if re.search(except_title, title, re.IGNORECASE):
+        if re.search(except_title, title, re.IGNORECASE) == None:
             print(f"Closing window: {title}")
             try:
                 gw.getWindowsWithTitle(title)[0].close()
@@ -429,3 +444,19 @@ def close_all_windows():
         except Exception as e:
             print(f"Could not close window '{title}': {e}")
 
+driver = None
+
+def openWebDriver():
+    global driver
+
+    if driver is None:
+        # Set up Chrome options to make the browser headless
+        options = Options()
+        options.add_argument("--user-data-dir=C:\Mybot\chromeData")  # path to your chrome user data (create this folder)
+
+        # Path to ChromeDriver
+        chrome_driver_path = r"C:\\Users\\mehan\\Downloads\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe"  # Ensure the path ends with the .exe file
+
+        driver = webdriver.Chrome(service=Service(chrome_driver_path),options = options)
+        
+    return driver
