@@ -140,18 +140,18 @@ def listen_for_command(silence_duration = 2):
 
 # Predefined functions with their parameter details
 FUNCTIONS = {
-    "generateCode": {
-        "module": "generateCode",
-        "description": "If no functions could be used on the list use this to Generates code based on user-provided requirements, like opening any application or works like interacting with the system. if the query is about to get response from chatgpt these shortcuts will help\n"
-            "Open new chat - Ctrl + Shift + O"
-            "Focus chat input - Shift + Esc"
-            "Copy last code block - Ctrl + Shift + ;"
-            "Copy last response - Ctrl + Shift + C"
-            "If need create functions that could return values which can be used for further funciton calls"
-            ,
-        "parameters": ["task_description"],
-        "example": 'generateCode("Implement a quicksort algorithm")',
-    },
+    # "generateCode": {
+    #     "module": "generateCode",
+    #     "description": "If no functions could be used on the list use this to Generates code based on user-provided requirements, like opening any application or works like interacting with the system. if the query is about to get response from chatgpt these shortcuts will help\n"
+    #         "Open new chat - Ctrl + Shift + O"
+    #         "Focus chat input - Shift + Esc"
+    #         "Copy last code block - Ctrl + Shift + ;"
+    #         "Copy last response - Ctrl + Shift + C"
+    #         "If need create functions that could return values which can be used for further funciton calls"
+    #         ,
+    #     "parameters": ["task_description"],
+    #     "example": 'generateCode("Implement a quicksort algorithm")',
+    # },
     "playOnline": {
         "module": "WebSearch",
         "description": "Plays a video from web based on the search query.",
@@ -184,13 +184,13 @@ FUNCTIONS = {
     },
     "searchYouTubeAndPlay": {
         "module": "WebSearch",
-        "description": "Opens YouTube in a browser, searches for a video based on a query, and plays it.",
+        "description": "Opens YouTube in a browser, searches for a video based on a query, and plays it. call this function when said that to play a video or song on youtube along with a title like play the video [name] on youtube",
         "parameters": ["query"],
         "example": 'searchYouTubeAndPlay("Parithanbangal")',
     },
      "splitScreen": {
         "module": "systemControl",
-        "description": "Splits the screen into four sections and arranges specified windows in the top-left, top-right, bottom-left, and bottom-right positions. Also call this function if seen a keyword 'Game on'",
+        "description": "Splits the screen into four sections for studying. this function is for arranging my laptop screen while studying and arranges specified windows in the top-left, top-right, bottom-left, and bottom-right positions. Also call this function if seen a keyword 'STUDY TIME'",
         "parameters": ["windows_titles"],
         "example": 'splitScreen(["YouTube", "Chrome", "Spotify", "VS Code"])',
     },
@@ -298,15 +298,24 @@ def generate_response(prompt):
         f"Each function and its parameters are: {FUNCTIONS}.\n"
         'Respond with a Python code snippet that contains the function call, and make sure to include all required arguments. place the code inside triple quotes for example triple quotes(""")function("query")triple quotes(""")\n'
         "For complex queries, you can return multiple function calls.\n"
-        "If the query is unclear or irrelevant, return an empty string.\n"
+        "Control tokens:\n"
+            "- Always use concise and valid Python syntax.\n"
+            "- If the query is unclear, return an empty string.\n"
         "Here is the user's query:\n"
         f"{prompt}\n"
         "Ensure your response is concise and strictly adheres to the user's request."
     )
 
+    # Parameters for generation
     data = {
         "inputs": enhanced_prompt,
-        "parameters": {"max_new_tokens": 250},
+        "parameters": {
+            "max_new_tokens": 400,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "top_k": 50,
+            "repetition_penalty": 1.2,
+        },
         "task": "text-generation"
     }
 
@@ -315,7 +324,7 @@ def generate_response(prompt):
     if response.status_code == 200:
         # Extract and clean up the response
         generated_text = response.json()[0]["generated_text"][len(enhanced_prompt):]
-        print("Generated Response:", generated_text)
+        print("Generated Response:", response.json()[0]["generated_text"])
         # Extract the code block (if applicable)
         
         return extract_function_call(generated_text)

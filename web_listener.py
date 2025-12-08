@@ -22,7 +22,7 @@ def monitor_whatsapp_group(group_name):
         for cookie in cookies:
             driver.add_cookie(cookie)
         driver.refresh()
-        time.sleep(10)
+        time.sleep(120)
     except FileNotFoundError:
         print("No cookies found. Please log in first and save the cookies.")
 
